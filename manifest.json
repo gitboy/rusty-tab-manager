@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Rusty Tab Manager",
+  "version": "1.0",
+  "description": "Automatically groups tabs by second-level domain and collapses other groups when switching tabs.",
+  "permissions": ["tabs", "tabGroups", "storage"],
+  "commands": {
+    "expand-all-groups": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+0",
+        "mac": "MacCtrl+Shift+0"
+      },
+      "description": "Expand all tab groups in the current window"
+    },
+    "collapse-all-groups": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+8",
+        "mac": "MacCtrl+Shift+8"
+      },
+      "description": "Collapse all tab groups in the current window"
+    },
+    "group-audio-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+9",
+        "mac": "MacCtrl+Shift+A"
+      },
+      "description": "Group all tabs playing audio into an audio group"
+    },
+    "ungroup-audio-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+7",
+        "mac": "MacCtrl+Shift+U"
+      },
+      "description": "Ungroup audio tabs and return them to their domain groups"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
