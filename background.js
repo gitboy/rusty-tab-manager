@@ -1,6 +1,14 @@
 const RECONCILE_DELAY_MS = 100;
 const GROUP_TITLE_MAX_LEN = 8;
 const NONE_GROUP_ID = chrome.tabGroups?.TAB_GROUP_ID_NONE ?? -1;
+const MULTI_PART_TLDS = new Set([
+  "co.uk", "co.jp", "co.kr", "co.nz", "co.za", "co.id", "co.th", "co.in",
+  "com.au", "com.br", "com.cn", "com.co", "com.hk", "com.mx", "com.sg",
+  "com.tw", "com.vn", "com.my", "com.ar", "com.tr", "com.pl",
+  "net.au", "net.nz", "org.au", "org.nz", "gov.uk", "gov.au", "gov.nz",
+  "ac.uk", "ac.nz", "ne.jp",
+]);
+const GENERIC_SUBDOMAINS = new Set(["www", "mail", "app", "blog", "docs", "api", "shop"]);
 
 const reconcileTimers = new Map();
 const collapseOverrides = new Map();
@@ -13,21 +21,29 @@ chrome.storage.local.get(["paused", "ungrouped"], (result) => {
   tabsUngrouped = Boolean(result.ungrouped);
 });
 
+function findDomainName(hostname) {
+  const parts = hostname.split(".").filter(Boolean);
+  if (parts.length <= 2) return parts.join(".");
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const nextIsMultiPartTld = MULTI_PART_TLDS.has(parts.slice(i + 1).join("."));
+    if (GENERIC_SUBDOMAINS.has(parts[i]) && !nextIsMultiPartTld) continue;
+    return parts[i];
+  }
+  return parts.slice(-2).join(".");
+}
+
 function truncateDomain(domain) {
-  const prefix = domain.split(".")[0];
-  return prefix.length > GROUP_TITLE_MAX_LEN
-    ? prefix.substring(0, GROUP_TITLE_MAX_LEN)
-    : prefix;
+  const name = findDomainName(domain);
+  return name.length > GROUP_TITLE_MAX_LEN
+    ? name.substring(0, GROUP_TITLE_MAX_LEN)
+    : name;
 }
 
 function getSecondLevelDomain(url) {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    const parts = hostname.split(".").filter(Boolean);
-    if (parts.length >= 2) {
-      return parts.slice(-2).join(".");
-    }
-    return hostname;
+    return findDomainName(hostname);
   } catch {
     return null;
   }
@@ -49,7 +65,7 @@ function normalizeDomainPattern(value) {
 
   const parts = normalized.split(".").filter(Boolean);
   if (parts.length >= 2) {
-    return parts.slice(-2).join(".");
+    return findDomainName(normalized);
   }
 
   return normalized;
