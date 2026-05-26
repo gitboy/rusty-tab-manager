@@ -55,6 +55,7 @@ function normalizeDomainPattern(value) {
   let normalized = value.trim().toLowerCase();
   normalized = normalized.replace(/^https?:\/\//, "");
   normalized = normalized.replace(/^\*\./, "");
+  normalized = normalized.replace(/\.+$/, "");
 
   const slashIndex = normalized.indexOf("/");
   if (slashIndex !== -1) {
