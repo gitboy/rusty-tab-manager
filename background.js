@@ -34,10 +34,11 @@ function findDomainName(hostname) {
 }
 
 function truncateDomain(domain) {
-  const name = findDomainName(domain);
-  return name.length > GROUP_TITLE_MAX_LEN
-    ? name.substring(0, GROUP_TITLE_MAX_LEN)
-    : name;
+  let name = findDomainName(domain);
+  if (name.length > GROUP_TITLE_MAX_LEN) {
+    name = name.substring(0, GROUP_TITLE_MAX_LEN);
+  }
+  return name.replace(/\.+$/, "");
 }
 
 function getSecondLevelDomain(url) {
