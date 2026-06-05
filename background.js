@@ -198,6 +198,21 @@ async function ensureWindowGroups(windowId, tabs, rules) {
     buckets.get(groupName).push(tab);
   }
 
+  // Single tabs are never auto-grouped: dissolve buckets that hold a lone
+  // tab and ungroup it if it is currently sitting in a group.
+  for (const [groupName, bucketTabs] of [...buckets.entries()]) {
+    if (bucketTabs.length >= 2) continue;
+    buckets.delete(groupName);
+    for (const tab of bucketTabs) {
+      if (tab.groupId === NONE_GROUP_ID) continue;
+      try {
+        await chrome.tabs.ungroup(tab.id);
+      } catch (err) {
+        console.warn("failed to ungroup single tab:", err);
+      }
+    }
+  }
+
   let groups = await getWindowGroups(windowId);
   const reservedGroupIds = new Set();
 
@@ -300,27 +315,43 @@ async function cleanupWindowGroups(windowId, tabs, rules) {
 
 async function sortWindowGroups(windowId) {
   const tabs = await chrome.tabs.query({ windowId });
-  const groups = (await getWindowGroups(windowId)).sort((left, right) => {
-    return (left.title || "").localeCompare(right.title || "");
-  });
+  const groups = await getWindowGroups(windowId);
 
-  let insertIndex = tabs.filter((tab) => tab.pinned).length;
+  // Build the horizontal layout as a list of units, ordered alphabetically.
+  // A group is keyed by its title; a lone manageable tab is keyed by its
+  // own title so single tabs stay sorted alongside groups.
+  const units = [];
 
   for (const group of groups) {
     const groupTabs = tabs
       .filter((tab) => tab.groupId === group.id)
       .sort((left, right) => left.index - right.index);
-
     if (groupTabs.length === 0) continue;
+    units.push({
+      key: group.title || "",
+      tabIds: groupTabs.map((tab) => tab.id),
+    });
+  }
 
+  for (const tab of tabs) {
+    if (tab.pinned) continue;
+    if (tab.groupId !== NONE_GROUP_ID) continue;
+    if (!isManageableTab(tab)) continue;
+    units.push({ key: tab.title || tab.url || "", tabIds: [tab.id] });
+  }
+
+  units.sort((left, right) =>
+    left.key.localeCompare(right.key, undefined, { sensitivity: "base" })
+  );
+
+  let insertIndex = tabs.filter((tab) => tab.pinned).length;
+
+  for (const unit of units) {
     try {
-      await chrome.tabs.move(
-        groupTabs.map((tab) => tab.id),
-        { index: insertIndex }
-      );
-      insertIndex += groupTabs.length;
+      await chrome.tabs.move(unit.tabIds, { index: insertIndex });
+      insertIndex += unit.tabIds.length;
     } catch (err) {
-      console.warn("failed to sort group tabs:", err);
+      console.warn("failed to sort tabs:", err);
     }
   }
 }
