@@ -8,7 +8,6 @@ const MULTI_PART_TLDS = new Set([
   "net.au", "net.nz", "org.au", "org.nz", "gov.uk", "gov.au", "gov.nz",
   "ac.uk", "ac.nz", "ne.jp",
 ]);
-const GENERIC_SUBDOMAINS = new Set(["www", "mail", "app", "blog", "docs", "api", "shop"]);
 
 const reconcileTimers = new Map();
 const collapseOverrides = new Map();
@@ -21,20 +20,24 @@ chrome.storage.local.get(["paused", "ungrouped"], (result) => {
   tabsUngrouped = Boolean(result.ungrouped);
 });
 
+// Always returns the registrable domain (sld + tld), e.g. "remoterocketship.com"
+// for any of remoterocketship.com / www.remoterocketship.com / app.remoterocketship.com.
+// Returning a consistent key regardless of subdomain is what lets a tab on www.* match
+// a rule written as the bare domain.
 function findDomainName(hostname) {
   const parts = hostname.split(".").filter(Boolean);
   if (parts.length <= 2) return parts.join(".");
 
-  for (let i = 0; i < parts.length - 1; i++) {
-    const nextIsMultiPartTld = MULTI_PART_TLDS.has(parts.slice(i + 1).join("."));
-    if (GENERIC_SUBDOMAINS.has(parts[i]) && !nextIsMultiPartTld) continue;
-    return parts[i];
-  }
-  return parts.slice(-2).join(".");
+  const lastTwo = parts.slice(-2).join(".");
+  const tldLabels = MULTI_PART_TLDS.has(lastTwo) ? 3 : 2;
+  return parts.slice(-tldLabels).join(".");
 }
 
 function truncateDomain(domain) {
-  let name = findDomainName(domain);
+  // The group title wants the bare second-level label ("remoterocketship"), not the
+  // full registrable domain that findDomainName returns.
+  const registrable = findDomainName(domain);
+  let name = registrable.split(".")[0] || registrable;
   if (name.length > GROUP_TITLE_MAX_LEN) {
     name = name.substring(0, GROUP_TITLE_MAX_LEN);
   }
